@@ -1,30 +1,89 @@
 import React, {useEffect, useState} from 'react'
 import api from '../api/axiosConfig'
+import { FiEdit2, FiTrash2 } from 'react-icons/fi'
 
 export default function Leaves(){
   const [leaves, setLeaves] = useState([])
   const [employees, setEmployees] = useState([])
   const [types, setTypes] = useState([])
   const [form, setForm] = useState({ employeeId: '', leaveTypeId: '', startDate: '', endDate: '' })
+  const [editingLeaveId, setEditingLeaveId] = useState(null)
+  const [editForm, setEditForm] = useState({ employeeId: '', leaveTypeId: '', startDate: '', endDate: '' })
 
   useEffect(()=>{
     loadAll()
   },[])
 
-  function loadAll(){
-    api.get('/leaves').then(res=>setLeaves(res.data)).catch(console.error)
-    api.get('/employees').then(res=>setEmployees(res.data)).catch(console.error)
-    api.get('/leave-types').then(res=>setTypes(res.data)).catch(console.error)
+  async function loadAll(){
+    try {
+      const [leavesRes, employeesRes, typesRes] = await Promise.all([
+        api.get('/leaves'),
+        api.get('/employees'),
+        api.get('/leave-types')
+      ])
+      setLeaves(leavesRes.data)
+      setEmployees(employeesRes.data)
+      setTypes(typesRes.data)
+    } catch (err) {
+      console.error('Error loading data:', err)
+    }
   }
 
-  function handleCreate(e){
+  async function handleCreate(e){
     e.preventDefault()
-    api.post('/leaves', form).then(()=>{ setForm({ employeeId:'', leaveTypeId:'', startDate:'', endDate:'' }); loadAll() })
-      .catch(err=>alert('Error: '+(err.response?.data?.message||err.message)))
+    try {
+      await api.post('/leaves', form)
+      setForm({ employeeId:'', leaveTypeId:'', startDate:'', endDate:'' })
+      await loadAll()
+    } catch (err) {
+      alert('Error: '+(err.response?.data?.message||err.message))
+    }
   }
 
-  function updateStatus(id, status){
-    api.patch(`/leaves/${id}/status?status=${status}`).then(()=>loadAll()).catch(err=>alert('Error: '+err.message))
+  async function updateStatus(id, status){
+    try {
+      await api.patch(`/leaves/${id}/status?status=${status}`)
+      await loadAll()
+    } catch (err) {
+      alert('Error: '+err.message)
+    }
+  }
+
+  function handleEdit(leave){
+    setEditingLeaveId(leave.id)
+    setEditForm({ employeeId: leave.employeeId, leaveTypeId: leave.leaveTypeId, startDate: leave.startDate, endDate: leave.endDate })
+  }
+
+  async function saveEdit(e){
+    e.preventDefault()
+    try {
+      console.log('Saving leave:', { id: editingLeaveId, data: editForm })
+      await api.patch(`/leaves/${editingLeaveId}`, editForm)
+      alert('Leave updated successfully!')
+      setEditingLeaveId(null)
+      await loadAll()
+    } catch (err) {
+      console.error('Save error:', err)
+      console.error('Response status:', err.response?.status)
+      console.error('Response data:', err.response?.data)
+      alert('Error: '+(err.response?.data?.message || err.response?.statusText || err.message))
+    }
+  }
+
+  async function handleDelete(id){
+    if(window.confirm('Are you sure you want to delete this leave?')){
+      try {
+        console.log('Deleting leave:', id)
+        await api.delete(`/leaves/${id}`)
+        alert('Leave deleted successfully!')
+        await loadAll()
+      } catch (err) {
+        console.error('Delete error:', err)
+        console.error('Response status:', err.response?.status)
+        console.error('Response data:', err.response?.data)
+        alert('Error: '+(err.response?.data?.message || err.response?.statusText || err.message))
+      }
+    }
   }
 
   return (
@@ -46,6 +105,8 @@ export default function Leaves(){
                   <td className="px-4 py-2 space-x-2">
                     {l.status==='PENDING' && <button onClick={()=>updateStatus(l.id,'APPROVED')} className="px-2 py-1 bg-green-600 text-white rounded">Approve</button>}
                     {l.status==='PENDING' && <button onClick={()=>updateStatus(l.id,'REJECTED')} className="px-2 py-1 bg-red-600 text-white rounded">Reject</button>}
+                    <button onClick={()=>handleEdit(l)} className="text-blue-600 hover:text-blue-800"><FiEdit2 size={18} /></button>
+                    <button onClick={()=>handleDelete(l.id)} className="text-red-600 hover:text-red-800"><FiTrash2 size={18} /></button>
                   </td>
                 </tr>
               ))}
@@ -81,6 +142,39 @@ export default function Leaves(){
           <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Request</button>
         </form>
       </div>
+      {editingLeaveId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+          <form onSubmit={saveEdit} className="bg-white p-6 rounded-lg shadow-lg w-96">
+            <h3 className="text-lg font-semibold mb-4">Edit Leave</h3>
+            <div>
+              <label className="block text-sm">Employee</label>
+              <select className="w-full border rounded px-3 py-2 mb-3" value={editForm.employeeId} onChange={e=>setEditForm({...editForm, employeeId: e.target.value})} required>
+                <option value="">Select</option>
+                {employees.map(emp=> <option key={emp.id} value={emp.id}>{emp.name} ({emp.email})</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm">Leave Type</label>
+              <select className="w-full border rounded px-3 py-2 mb-3" value={editForm.leaveTypeId} onChange={e=>setEditForm({...editForm, leaveTypeId: e.target.value})} required>
+                <option value="">Select</option>
+                {types.map(t=> <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm">Start Date</label>
+              <input type="date" className="w-full border rounded px-3 py-2 mb-3" value={editForm.startDate} onChange={e=>setEditForm({...editForm, startDate: e.target.value})} required />
+            </div>
+            <div>
+              <label className="block text-sm">End Date</label>
+              <input type="date" className="w-full border rounded px-3 py-2 mb-3" value={editForm.endDate} onChange={e=>setEditForm({...editForm, endDate: e.target.value})} required />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={()=>setEditingLeaveId(null)} className="px-4 py-2 bg-gray-300 rounded">Cancel</button>
+              <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Save</button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   )
 }

@@ -12,7 +12,15 @@ export default function Dashboard() {
   const [showLeaveForm, setShowLeaveForm] = useState(false)
 
   const [employeeData, setEmployeeData] = useState({ name: '', email: '', role: '' })
-  const [leaveData, setLeaveData] = useState({ employeeId: '', leaveType: '', status: '', startDate: '', endDate: '' })
+ const [leaveData, setLeaveData] = useState({
+  employeeId: '',
+  leaveTypeId: '',
+  status: '',
+  startDate: '',
+  endDate: ''
+})
+
+
 
   // Fetch counts and lists for dashboard
   const fetchDashboardData = async () => {
@@ -65,11 +73,11 @@ export default function Dashboard() {
       await axios.post('http://localhost:8080/api/leaves', leaveData)
       alert('Leave created successfully!')
       setShowLeaveForm(false)
-      setLeaveData({ employeeId: '', leaveType: '', status: '', startDate: '', endDate: '' })
+      setLeaveData({ employeeId: '', leaveTypeId: '', status: '', startDate: '', endDate: '' })
       fetchDashboardData()
     } catch (error) {
       console.log(leaveData);
-      console.error('Error creating leave:', error);
+      console.error('Error creating leave:', error.response?.data?.message)
       alert('Failed to create leave.')
     }
   }
@@ -112,7 +120,6 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-
       {/* Employee Form Modal */}
       {showEmployeeForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
@@ -164,72 +171,111 @@ export default function Dashboard() {
       )}
 
       {/* Leave Form Modal */}
-      {showLeaveForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
-          <form
-            onSubmit={handleCreateLeave}
-            className="bg-white p-6 rounded-lg shadow-lg w-96"
-          >
-            <h3 className="text-lg font-semibold mb-4">Create Leave</h3>
+{showLeaveForm && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
+    <form
+      onSubmit={handleCreateLeave}
+      className="bg-white p-6 rounded-lg shadow-lg w-96"
+    >
+      <h3 className="text-lg font-semibold mb-4">Create Leave</h3>
 
-            {/* Employee dropdown */}
-            <select
-              value={leaveData.employeeId}
-              onChange={(e) => setLeaveData({ ...leaveData, employeeId: e.target.value })}
-              className="border p-2 w-full mb-3"
-              required
-            >
-              <option value="" disabled>Choose employee</option>
-              {employeeList.map((emp) => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.name} ({emp.email})
-                </option>
-              ))}
-            </select>
+      {/* Employee dropdown */}
+      <select
+        value={leaveData.employeeId}
+        onChange={(e) =>
+          setLeaveData({ ...leaveData, employeeId: Number(e.target.value) })
+        }
+        className="border p-2 w-full mb-3"
+        required
+      >
+        <option value="" disabled>
+          Choose employee
+        </option>
+        {employeeList.map((emp) => (
+          <option key={emp.id} value={emp.id}>
+            {emp.name} ({emp.email})
+          </option>
+        ))}
+      </select>
 
-            {/* Leave Type dropdown */}
-            <select
-              value={leaveData.leaveType}
-              onChange={(e) => setLeaveData({ ...leaveData, leaveType: e.target.value })}
-              className="border p-2 w-full mb-3"
-              required
-            >
-              <option value="" disabled>Choose leave type</option>
-              {leaveTypeList.map((type) => (
-                <option key={type.id} value={type.name}>
-                  {type.name}
-                </option>
-              ))}
-            </select>
+      {/* Leave Type dropdown */}
+      <select
+        value={leaveData.leaveTypeId}
+        onChange={(e) =>
+          setLeaveData({ ...leaveData, leaveTypeId: Number(e.target.value) })
+        }
+        className="border p-2 w-full mb-3"
+        required
+      >
+        <option value="" disabled>
+          Choose leave type
+        </option>
+        {leaveTypeList.map((type) => (
+          <option key={type.id} value={type.id}>
+            {type.name}
+          </option>
+        ))}
+      </select>
 
-            {/* Leave Status dropdown */}
-            <select
-              value={leaveData.status}
-              onChange={(e) => setLeaveData({ ...leaveData, status: e.target.value })}
-              className="border p-2 w-full mb-3"
-              required
-            >
-              <option value="" disabled>Choose status</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-            </select>
+      {/* Start date */}
+      <label className="block mb-1 font-medium">Start Date</label>
+      <input
+        type="date"
+        value={leaveData.startDate}
+        onChange={(e) =>
+          setLeaveData({ ...leaveData, startDate: e.target.value })
+        }
+        className="border p-2 w-full mb-3"
+        required
+      />
 
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowLeaveForm(false)}
-                className="px-4 py-2 bg-gray-300 rounded"
-              >
-                Cancel
-              </button>
-              <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">
-                Save
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+      {/* End date */}
+      <label className="block mb-1 font-medium">End Date</label>
+      <input
+        type="date"
+        value={leaveData.endDate}
+        onChange={(e) =>
+          setLeaveData({ ...leaveData, endDate: e.target.value })
+        }
+        className="border p-2 w-full mb-3"
+        required
+      />
+
+      {/* Status dropdown */}
+      <select
+        value={leaveData.status}
+        onChange={(e) =>
+          setLeaveData({ ...leaveData, status: e.target.value.toUpperCase() })
+        }
+        className="border p-2 w-full mb-3"
+        required
+      >
+        <option value="" disabled>
+          Choose status
+        </option>
+        <option value="PENDING">Pending</option>
+        <option value="APPROVED">Approved</option>
+        <option value="REJECTED">Rejected</option>
+      </select>
+
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => setShowLeaveForm(false)}
+          className="px-4 py-2 bg-gray-300 rounded"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          className="px-4 py-2 bg-blue-600 text-white rounded"
+        >
+          Save
+        </button>
+      </div>
+    </form>
+  </div>
+)}
     </div>
   )
 }
