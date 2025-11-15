@@ -1,180 +1,158 @@
-import React, {useEffect, useState} from 'react'
-import api from '../api/axiosConfig'
-import { FiEdit2, FiTrash2 } from 'react-icons/fi'
+import React, { useEffect, useState } from "react";
+import axios from "axios";
 
-export default function Leaves(){
-  const [leaves, setLeaves] = useState([])
-  const [employees, setEmployees] = useState([])
-  const [types, setTypes] = useState([])
-  const [form, setForm] = useState({ employeeId: '', leaveTypeId: '', startDate: '', endDate: '' })
-  const [editingLeaveId, setEditingLeaveId] = useState(null)
-  const [editForm, setEditForm] = useState({ employeeId: '', leaveTypeId: '', startDate: '', endDate: '' })
+export default function Leave() {
+  const [leaves, setLeaves] = useState([]);
+  const [selectedLeave, setSelectedLeave] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
-  useEffect(()=>{
-    loadAll()
-  },[])
+  const [formData, setFormData] = useState({
+    status: "Pending",
+  });
 
-  async function loadAll(){
+  // Fetch all leaves
+  const fetchLeaves = async () => {
     try {
-      const [leavesRes, employeesRes, typesRes] = await Promise.all([
-        api.get('/leaves'),
-        api.get('/employees'),
-        api.get('/leave-types')
-      ])
-      setLeaves(leavesRes.data)
-      setEmployees(employeesRes.data)
-      setTypes(typesRes.data)
-    } catch (err) {
-      console.error('Error loading data:', err)
+      const response = await axios.get("http://localhost:8080/api/leaves");
+      setLeaves(response.data);
+    } catch (error) {
+      console.error("Error fetching leaves:", error);
     }
-  }
+  };
 
-  async function handleCreate(e){
-    e.preventDefault()
+  useEffect(() => {
+    fetchLeaves();
+  }, []);
+
+  // Handle input changes
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  // Open edit modal and prefill status
+  const handleEdit = (leave) => {
+    setSelectedLeave(leave);
+    setFormData({
+      status: leave.status || leave.leaveStatus || "Pending",
+    });
+    setShowEditModal(true);
+  };
+
+  // Save edited status (PATCH)
+  const handleSaveChanges = async () => {
     try {
-      await api.post('/leaves', form)
-      setForm({ employeeId:'', leaveTypeId:'', startDate:'', endDate:'' })
-      await loadAll()
-    } catch (err) {
-      alert('Error: '+(err.response?.data?.message||err.message))
+      await axios.patch(
+        `http://localhost:8080/api/leaves/${selectedLeave.id}/status`,
+        null,
+        { params: { status: formData.status } }
+      );
+      setShowEditModal(false);
+      fetchLeaves(); // refresh table
+      alert("Leave status updated successfully");
+    } catch (error) {
+      console.error("Error updating leave status:", error);
+      alert("Failed to update status");
     }
-  }
+  };
 
-  async function updateStatus(id, status){
+  // Delete leave entry
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this leave?")) return;
+
     try {
-      await api.patch(`/leaves/${id}/status?status=${status}`)
-      await loadAll()
-    } catch (err) {
-      alert('Error: '+err.message)
+      await axios.delete(`http://localhost:8080/api/leaves/${id}`);
+      fetchLeaves();
+    } catch (error) {
+      console.error("Error deleting leave:", error);
+      alert("Failed to delete leave");
     }
-  }
-
-  function handleEdit(leave){
-    setEditingLeaveId(leave.id)
-    setEditForm({ employeeId: leave.employeeId, leaveTypeId: leave.leaveTypeId, startDate: leave.startDate, endDate: leave.endDate })
-  }
-
-  async function saveEdit(e){
-    e.preventDefault()
-    try {
-      console.log('Saving leave:', { id: editingLeaveId, data: editForm })
-      await api.patch(`/leaves/${editingLeaveId}`, editForm)
-      alert('Leave updated successfully!')
-      setEditingLeaveId(null)
-      await loadAll()
-    } catch (err) {
-      console.error('Save error:', err)
-      console.error('Response status:', err.response?.status)
-      console.error('Response data:', err.response?.data)
-      alert('Error: '+(err.response?.data?.message || err.response?.statusText || err.message))
-    }
-  }
-
-  async function handleDelete(id){
-    if(window.confirm('Are you sure you want to delete this leave?')){
-      try {
-        console.log('Deleting leave:', id)
-        await api.delete(`/leaves/${id}`)
-        alert('Leave deleted successfully!')
-        await loadAll()
-      } catch (err) {
-        console.error('Delete error:', err)
-        console.error('Response status:', err.response?.status)
-        console.error('Response data:', err.response?.data)
-        alert('Error: '+(err.response?.data?.message || err.response?.statusText || err.message))
-      }
-    }
-  }
+  };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="card lg:col-span-2">
-        <h1 className="text-2xl font-semibold mb-4">Leaves</h1>
-        <div className="overflow-x-auto">
-          <table className="min-w-full table-auto">
-            <thead><tr className="text-left"><th className="px-4 py-2">ID</th><th className="px-4 py-2">Employee</th><th className="px-4 py-2">Type</th><th className="px-4 py-2">Start</th><th className="px-4 py-2">End</th><th className="px-4 py-2">Status</th><th className="px-4 py-2">Actions</th></tr></thead>
-            <tbody>
-              {leaves.map(l=>(
-                <tr key={l.id} className="border-t">
-                  <td className="px-4 py-2">{l.id}</td>
-                  <td className="px-4 py-2">{l.employeeId}</td>
-                  <td className="px-4 py-2">{l.leaveTypeId}</td>
-                  <td className="px-4 py-2">{l.startDate}</td>
-                  <td className="px-4 py-2">{l.endDate}</td>
-                  <td className="px-4 py-2">{l.status}</td>
-                  <td className="px-4 py-2 space-x-2">
-                    {l.status==='PENDING' && <button onClick={()=>updateStatus(l.id,'APPROVED')} className="px-2 py-1 bg-green-600 text-white rounded">Approve</button>}
-                    {l.status==='PENDING' && <button onClick={()=>updateStatus(l.id,'REJECTED')} className="px-2 py-1 bg-red-600 text-white rounded">Reject</button>}
-                    <button onClick={()=>handleEdit(l)} className="text-blue-600 hover:text-blue-800"><FiEdit2 size={18} /></button>
-                    <button onClick={()=>handleDelete(l.id)} className="text-red-600 hover:text-red-800"><FiTrash2 size={18} /></button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div className="card">
-        <h2 className="text-lg font-semibold mb-3">Request Leave</h2>
-        <form onSubmit={handleCreate} className="space-y-3">
-          <div>
-            <label className="block text-sm">Employee</label>
-            <select className="w-full border rounded px-3 py-2" value={form.employeeId} onChange={e=>setForm({...form, employeeId: e.target.value})} required>
-              <option value="">Select</option>
-              {employees.map(emp=> <option key={emp.id} value={emp.id}>{emp.name} ({emp.email})</option>)}
+    <div className="p-6">
+      <h2 className="text-2xl font-bold mb-4">Leave Management</h2>
+
+      {/* Leave Table */}
+      <table className="min-w-full border border-gray-300 rounded-lg">
+        <thead className="bg-gray-100">
+          <tr>
+            <th className="border p-2">Employee ID</th>
+            <th className="border p-2">Leave Type</th>
+            <th className="border p-2">Start Date</th>
+            <th className="border p-2">End Date</th>
+            <th className="border p-2">Status</th>
+            <th className="border p-2">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {leaves.map((leave) => (
+            <tr key={leave.id}>
+              <td className="border p-2">{leave.employeeId}</td>
+              <td className="border p-2">{leave.leaveType}</td>
+              <td className="border p-2">{leave.startDate}</td>
+              <td className="border p-2">{leave.endDate}</td>
+              <td className="border p-2">{leave.status}</td>
+
+              <td className="border p-2 flex gap-2">
+                <button
+                  onClick={() => handleEdit(leave)}
+                  className="px-3 py-1 bg-blue-500 text-white rounded"
+                >
+                  Edit
+                </button>
+
+                <button
+                  onClick={() => handleDelete(leave.id)}
+                  className="px-3 py-1 bg-red-500 text-white rounded"
+                >
+                  Delete
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* Edit Status Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center">
+          <div className="bg-white p-6 w-[400px] rounded-lg shadow-lg">
+            <h2 className="text-xl font-bold mb-4">Edit Leave Status</h2>
+
+            {/* Status Field */}
+            <label className="block mb-2">Status</label>
+            <select
+              name="status"
+              value={formData.status}
+              onChange={handleChange}
+              className="border p-2 w-full mb-3"
+            >
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
             </select>
+
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="bg-gray-400 px-4 py-2 text-white rounded"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={handleSaveChanges}
+                className="bg-green-600 px-4 py-2 text-white rounded"
+              >
+                Save Changes
+              </button>
+            </div>
           </div>
-          <div>
-            <label className="block text-sm">Leave Type</label>
-            <select className="w-full border rounded px-3 py-2" value={form.leaveTypeId} onChange={e=>setForm({...form, leaveTypeId: e.target.value})} required>
-              <option value="">Select</option>
-              {types.map(t=> <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm">Start Date</label>
-            <input type="date" className="w-full border rounded px-3 py-2" value={form.startDate} onChange={e=>setForm({...form, startDate: e.target.value})} required />
-          </div>
-          <div>
-            <label className="block text-sm">End Date</label>
-            <input type="date" className="w-full border rounded px-3 py-2" value={form.endDate} onChange={e=>setForm({...form, endDate: e.target.value})} required />
-          </div>
-          <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Request</button>
-        </form>
-      </div>
-      {editingLeaveId && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <form onSubmit={saveEdit} className="bg-white p-6 rounded-lg shadow-lg w-96">
-            <h3 className="text-lg font-semibold mb-4">Edit Leave</h3>
-            <div>
-              <label className="block text-sm">Employee</label>
-              <select className="w-full border rounded px-3 py-2 mb-3" value={editForm.employeeId} onChange={e=>setEditForm({...editForm, employeeId: e.target.value})} required>
-                <option value="">Select</option>
-                {employees.map(emp=> <option key={emp.id} value={emp.id}>{emp.name} ({emp.email})</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm">Leave Type</label>
-              <select className="w-full border rounded px-3 py-2 mb-3" value={editForm.leaveTypeId} onChange={e=>setEditForm({...editForm, leaveTypeId: e.target.value})} required>
-                <option value="">Select</option>
-                {types.map(t=> <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm">Start Date</label>
-              <input type="date" className="w-full border rounded px-3 py-2 mb-3" value={editForm.startDate} onChange={e=>setEditForm({...editForm, startDate: e.target.value})} required />
-            </div>
-            <div>
-              <label className="block text-sm">End Date</label>
-              <input type="date" className="w-full border rounded px-3 py-2 mb-3" value={editForm.endDate} onChange={e=>setEditForm({...editForm, endDate: e.target.value})} required />
-            </div>
-            <div className="flex justify-end gap-2">
-              <button type="button" onClick={()=>setEditingLeaveId(null)} className="px-4 py-2 bg-gray-300 rounded">Cancel</button>
-              <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Save</button>
-            </div>
-          </form>
         </div>
       )}
     </div>
-  )
+  );
 }

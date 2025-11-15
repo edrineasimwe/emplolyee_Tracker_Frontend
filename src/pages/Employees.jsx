@@ -41,7 +41,7 @@ export default function Employees() {
     e.preventDefault()
 
     try {
-      await api.patch(`/employees/${editingEmpId}`, editForm)
+      await api.put(`/employees/${editingEmpId}`, editForm)
       alert('Employee updated successfully!')
       setEditingEmpId(null)   // close modal
       loadAll()               // refresh table
